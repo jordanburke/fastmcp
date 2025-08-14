@@ -940,7 +940,7 @@ export interface FastMCPResponse {
 /**
  * HTTP method types for custom routes
  */
-export type HTTPMethod = "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
+export type HTTPMethod = "DELETE" | "GET" | "OPTIONS" | "PATCH" | "POST" | "PUT";
 
 /**
  * Route handler function type

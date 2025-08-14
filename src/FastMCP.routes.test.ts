@@ -205,6 +205,7 @@ test("custom routes handle query parameters", async () => {
 test("custom routes handle different HTTP methods", async () => {
   await runWithTestServer({
     run: async ({ port }) => {
+      // Note: OPTIONS is intercepted by mcp-proxy for CORS handling and returns 204
       const methods = ["GET", "POST", "PUT", "DELETE", "PATCH"];
 
       for (const method of methods) {
@@ -216,6 +217,12 @@ test("custom routes handle different HTTP methods", async () => {
         const data = (await response.json()) as { method: string };
         expect(data.method).toBe(method);
       }
+      
+      // Test that OPTIONS returns 204 (handled by mcp-proxy for CORS)
+      const optionsResponse = await fetch(`http://localhost:${port}/resource`, {
+        method: "OPTIONS",
+      });
+      expect(optionsResponse.status).toBe(204);
     },
     server: async () => {
       const server = new FastMCP({
@@ -228,6 +235,11 @@ test("custom routes handle different HTTP methods", async () => {
         server.addRoute(method, "/resource", async (req, res) => {
           res.json({ method: req.method });
         });
+      });
+      
+      // Note: OPTIONS handler won't be called due to mcp-proxy CORS handling
+      server.addRoute("OPTIONS", "/resource", async (req, res) => {
+        res.json({ method: req.method });
       });
 
       return server;
