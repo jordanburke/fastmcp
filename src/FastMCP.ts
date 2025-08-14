@@ -940,7 +940,13 @@ export interface FastMCPResponse {
 /**
  * HTTP method types for custom routes
  */
-export type HTTPMethod = "DELETE" | "GET" | "OPTIONS" | "PATCH" | "POST" | "PUT";
+export type HTTPMethod =
+  | "DELETE"
+  | "GET"
+  | "OPTIONS"
+  | "PATCH"
+  | "POST"
+  | "PUT";
 
 /**
  * Route handler function type
@@ -949,6 +955,19 @@ export type RouteHandler<T extends FastMCPSessionAuth = FastMCPSessionAuth> = (
   req: FastMCPRequest<T>,
   res: FastMCPResponse,
 ) => Promise<void> | void;
+
+/**
+ * Options for configuring custom routes
+ */
+export interface RouteOptions {
+  /**
+   * Whether this route should bypass authentication.
+   * When true, the route handler will be called without authentication,
+   * and req.auth will be undefined.
+   * @default false
+   */
+  public?: boolean;
+}
 
 type Authenticate<T> = (request: http.IncomingMessage) => Promise<T>;
 
@@ -959,6 +978,7 @@ type FastMCPSessionAuth = Record<string, unknown> | undefined;
  */
 interface Route<T extends FastMCPSessionAuth = FastMCPSessionAuth> {
   handler: RouteHandler<T>;
+  isPublic?: boolean;
   method: HTTPMethod;
   paramNames: string[];
   path: string;
@@ -1994,22 +2014,34 @@ export class FastMCP<
   /**
    * Adds a custom HTTP route to the server.
    *
-   * @param method - HTTP method (GET, POST, PUT, DELETE, PATCH)
+   * @param method - HTTP method (GET, POST, PUT, DELETE, PATCH, OPTIONS)
    * @param path - Route path with optional parameters (e.g., "/users/:id")
    * @param handler - Route handler function
+   * @param options - Optional route configuration
    *
    * @example
    * ```typescript
+   * // Private route (requires authentication)
    * server.addRoute('GET', '/api/users', async (req, res) => {
    *   res.json({ users: [] });
    * });
+   *
+   * // Public route (bypasses authentication)
+   * server.addRoute('GET', '/.well-known/openid-configuration', async (req, res) => {
+   *   res.json({ issuer: 'https://example.com' });
+   * }, { public: true });
    *
    * server.addRoute('GET', '/api/users/:id', async (req, res) => {
    *   res.json({ id: req.params.id });
    * });
    * ```
    */
-  public addRoute(method: HTTPMethod, path: string, handler: RouteHandler<T>) {
+  public addRoute(
+    method: HTTPMethod,
+    path: string,
+    handler: RouteHandler<T>,
+    options?: RouteOptions,
+  ) {
     // Validate inputs
     if (!method || !path || !handler) {
       throw new Error("Method, path, and handler are required for routes");
@@ -2039,6 +2071,7 @@ export class FastMCP<
 
     const route: Route<T> = {
       handler,
+      isPublic: options?.public === true,
       method: method.toUpperCase() as HTTPMethod,
       paramNames,
       path,
@@ -2380,9 +2413,9 @@ export class FastMCP<
             params[name] = decodeURIComponent(match[index + 1]);
           });
 
-          // Get authentication if available
+          // Get authentication if available and route is not public
           let auth: T | undefined;
-          if (this.#authenticate) {
+          if (this.#authenticate && !route.isPublic) {
             try {
               auth = await this.#authenticate(req);
             } catch (error) {

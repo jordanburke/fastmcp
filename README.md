@@ -221,14 +221,62 @@ server.addRoute("POST", "/webhook/github", async (req, res) => {
 
 Custom routes support:
 
-- All HTTP methods: GET, POST, PUT, DELETE, PATCH
+- All HTTP methods: GET, POST, PUT, DELETE, PATCH, OPTIONS
 - Path parameters (`:param`) and wildcards (`*`)
 - Query string parsing
 - JSON and text body parsing
 - Custom status codes and headers
 - Authentication via the same `authenticate` function as MCP
+- **Public routes** that bypass authentication
 
-Routes are matched in the order they are registered, allowing you to define specific routes before catch-all patterns. See the [custom-routes example](src/examples/custom-routes.ts) for a complete demonstration.
+Routes are matched in the order they are registered, allowing you to define specific routes before catch-all patterns.
+
+##### Public Routes
+
+By default, custom routes require authentication (if configured). You can make routes public by adding the `{ public: true }` option:
+
+```ts
+// Public route - no authentication required
+server.addRoute(
+  "GET",
+  "/.well-known/openid-configuration",
+  async (req, res) => {
+    res.json({
+      issuer: "https://example.com",
+      authorization_endpoint: "https://example.com/auth",
+      token_endpoint: "https://example.com/token",
+    });
+  },
+  { public: true },
+);
+
+// Private route - requires authentication
+server.addRoute("GET", "/api/users", async (req, res) => {
+  // req.auth contains authenticated user data
+  res.json({ users: [] });
+});
+
+// Public static files
+server.addRoute(
+  "GET",
+  "/public/*",
+  async (req, res) => {
+    // Serve static files without authentication
+    res.send(`File: ${req.url}`);
+  },
+  { public: true },
+);
+```
+
+Public routes are perfect for:
+
+- OAuth discovery endpoints (`.well-known/*`)
+- Health checks and status pages
+- Static assets and documentation
+- Webhook endpoints from external services
+- Public APIs that don't require user authentication
+
+See the [custom-routes example](src/examples/custom-routes.ts) for a complete demonstration.
 
 #### Stateless Mode
 
