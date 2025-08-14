@@ -18,6 +18,7 @@ A TypeScript framework for building [MCP](https://glama.ai/mcp) servers capable 
 - [Logging](#logging)
 - [Error handling](#errors)
 - [HTTP Streaming](#http-streaming) (with SSE compatibility)
+- [Custom HTTP routes](#custom-http-routes) for REST APIs, webhooks, and admin interfaces
 - [Stateless mode](#stateless-mode) for serverless deployments
 - CORS (enabled by default)
 - [Progress notifications](#progress)
@@ -178,6 +179,56 @@ const transport = new SSEClientTransport(new URL(`http://localhost:8080/sse`));
 
 await client.connect(transport);
 ```
+
+#### Custom HTTP Routes
+
+FastMCP allows you to add custom HTTP routes alongside MCP endpoints, enabling you to build comprehensive HTTP services that include REST APIs, webhooks, admin interfaces, and more - all within the same server process.
+
+```ts
+// Add REST API endpoints
+server.addRoute("GET", "/api/users", async (req, res) => {
+  res.json({ users: [] });
+});
+
+// Handle path parameters
+server.addRoute("GET", "/api/users/:id", async (req, res) => {
+  res.json({
+    userId: req.params.id,
+    query: req.query, // Access query parameters
+  });
+});
+
+// Handle POST requests with body parsing
+server.addRoute("POST", "/api/users", async (req, res) => {
+  const body = await req.json();
+  res.status(201).json({ created: body });
+});
+
+// Serve HTML content
+server.addRoute("GET", "/admin", async (req, res) => {
+  res.send("<html><body><h1>Admin Panel</h1></body></html>");
+});
+
+// Handle webhooks
+server.addRoute("POST", "/webhook/github", async (req, res) => {
+  const payload = await req.json();
+  const event = req.headers["x-github-event"];
+
+  // Process webhook...
+  res.json({ received: true });
+});
+```
+
+Custom routes support:
+
+- All HTTP methods: GET, POST, PUT, DELETE, PATCH
+- Path parameters (`:param`) and wildcards (`*`)
+- Query string parsing
+- JSON and text body parsing
+- Custom status codes and headers
+- Authentication via the same `authenticate` function as MCP
+
+Routes are matched in the order they are registered, allowing you to define specific routes before catch-all patterns. See the [custom-routes example](src/examples/custom-routes.ts) for a complete demonstration.
 
 #### Stateless Mode
 
