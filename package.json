@@ -40,6 +40,9 @@
     "url": "https://github.com/punkpeye/fastmcp"
   },
   "homepage": "https://glama.ai/mcp",
+  "publishConfig": {
+    "access": "public"
+  },
   "release": {
     "branches": [
       "main"
