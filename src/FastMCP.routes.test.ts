@@ -217,7 +217,7 @@ test("custom routes handle different HTTP methods", async () => {
         const data = (await response.json()) as { method: string };
         expect(data.method).toBe(method);
       }
-      
+
       // Test that OPTIONS returns 204 (handled by mcp-proxy for CORS)
       const optionsResponse = await fetch(`http://localhost:${port}/resource`, {
         method: "OPTIONS",
@@ -236,7 +236,7 @@ test("custom routes handle different HTTP methods", async () => {
           res.json({ method: req.method });
         });
       });
-      
+
       // Note: OPTIONS handler won't be called due to mcp-proxy CORS handling
       server.addRoute("OPTIONS", "/resource", async (req, res) => {
         res.json({ method: req.method });
@@ -582,4 +582,345 @@ test("custom routes handle concurrent requests", async () => {
       return server;
     },
   });
+});
+
+test("public routes bypass authentication", async () => {
+  interface TestAuth {
+    [key: string]: unknown;
+    userId: string;
+  }
+
+  const port = await getRandomPort();
+  const server = new FastMCP<TestAuth>({
+    authenticate: async (req) => {
+      const authHeader = req.headers.authorization;
+      if (authHeader === "Bearer valid-token") {
+        return { userId: "123" };
+      }
+      throw new Error("Unauthorized");
+    },
+    name: "Test",
+    version: "1.0.0",
+  });
+
+  // Add a public route
+  server.addRoute(
+    "GET",
+    "/public",
+    async (req, res) => {
+      res.json({
+        auth: req.auth,
+        message: "This is public",
+        public: true,
+      });
+    },
+    { public: true },
+  );
+
+  // Add a private route for comparison
+  server.addRoute("GET", "/private", async (req, res) => {
+    res.json({
+      auth: req.auth,
+      message: "This is private",
+      public: false,
+    });
+  });
+
+  await server.start({
+    httpStream: { port },
+    transportType: "httpStream",
+  });
+
+  try {
+    // Test public route without auth - should work
+    const publicResponse = await fetch(`http://localhost:${port}/public`);
+    expect(publicResponse.status).toBe(200);
+    const publicData = (await publicResponse.json()) as {
+      auth: unknown;
+      message: string;
+      public: boolean;
+    };
+    expect(publicData).toEqual({
+      auth: undefined, // No auth for public routes
+      message: "This is public",
+      public: true,
+    });
+
+    // Test private route without auth - should fail
+    const privateResponse = await fetch(`http://localhost:${port}/private`);
+    expect(privateResponse.status).toBe(401);
+
+    // Test private route with valid auth - should work
+    const privateAuthResponse = await fetch(
+      `http://localhost:${port}/private`,
+      {
+        headers: {
+          Authorization: "Bearer valid-token",
+        },
+      },
+    );
+    expect(privateAuthResponse.status).toBe(200);
+    const privateAuthData = (await privateAuthResponse.json()) as {
+      auth: { userId: string };
+      message: string;
+      public: boolean;
+    };
+    expect(privateAuthData).toEqual({
+      auth: { userId: "123" },
+      message: "This is private",
+      public: false,
+    });
+  } finally {
+    await server.stop();
+  }
+});
+
+test("public routes work with OAuth discovery endpoints", async () => {
+  const port = await getRandomPort();
+  const server = new FastMCP({
+    authenticate: async () => {
+      // Always reject auth to verify public routes bypass this
+      throw new Error("Auth should be bypassed for public routes");
+    },
+    name: "Test",
+    version: "1.0.0",
+  });
+
+  // Add OAuth discovery endpoint as public route
+  server.addRoute(
+    "GET",
+    "/.well-known/openid-configuration",
+    async (_req, res) => {
+      res.json({
+        authorization_endpoint: "https://example.com/auth",
+        issuer: "https://example.com",
+        token_endpoint: "https://example.com/token",
+      });
+    },
+    { public: true },
+  );
+
+  // Add protected resource metadata as public route
+  server.addRoute(
+    "GET",
+    "/.well-known/oauth-protected-resource",
+    async (_req, res) => {
+      res.json({
+        authorizationServers: ["https://example.com"],
+        resource: "https://example.com/api",
+      });
+    },
+    { public: true },
+  );
+
+  await server.start({
+    httpStream: { port },
+    transportType: "httpStream",
+  });
+
+  try {
+    // Test OpenID configuration endpoint
+    const oidcResponse = await fetch(
+      `http://localhost:${port}/.well-known/openid-configuration`,
+    );
+    expect(oidcResponse.status).toBe(200);
+    const oidcData = (await oidcResponse.json()) as {
+      authorization_endpoint: string;
+      issuer: string;
+      token_endpoint: string;
+    };
+    expect(oidcData.issuer).toBe("https://example.com");
+
+    // Test protected resource metadata endpoint
+    const resourceResponse = await fetch(
+      `http://localhost:${port}/.well-known/oauth-protected-resource`,
+    );
+    expect(resourceResponse.status).toBe(200);
+    const resourceData = (await resourceResponse.json()) as {
+      authorizationServers: string[];
+      resource: string;
+    };
+    expect(resourceData.resource).toBe("https://example.com/api");
+  } finally {
+    await server.stop();
+  }
+});
+
+test("public routes work with wildcards", async () => {
+  const port = await getRandomPort();
+  const server = new FastMCP({
+    authenticate: async () => {
+      throw new Error("Auth should be bypassed");
+    },
+    name: "Test",
+    version: "1.0.0",
+  });
+
+  // Add public wildcard route for static files
+  server.addRoute(
+    "GET",
+    "/public/*",
+    async (req, res) => {
+      res.json({
+        file: req.url,
+        message: "Public static file",
+      });
+    },
+    { public: true },
+  );
+
+  await server.start({
+    httpStream: { port },
+    transportType: "httpStream",
+  });
+
+  try {
+    const response = await fetch(
+      `http://localhost:${port}/public/css/style.css`,
+    );
+    expect(response.status).toBe(200);
+    const data = (await response.json()) as {
+      file: string;
+      message: string;
+    };
+    expect(data.file).toBe("/public/css/style.css");
+    expect(data.message).toBe("Public static file");
+  } finally {
+    await server.stop();
+  }
+});
+
+test("mixed public and private routes with same path pattern", async () => {
+  interface TestAuth {
+    [key: string]: unknown;
+    role: string;
+  }
+
+  const port = await getRandomPort();
+  const server = new FastMCP<TestAuth>({
+    authenticate: async (req) => {
+      const authHeader = req.headers.authorization;
+      if (authHeader === "Bearer admin-token") {
+        return { role: "admin" };
+      }
+      throw new Error("Unauthorized");
+    },
+    name: "Test",
+    version: "1.0.0",
+  });
+
+  // Public GET endpoint
+  server.addRoute(
+    "GET",
+    "/api/status",
+    async (_req, res) => {
+      res.json({ public: true, status: "ok" });
+    },
+    { public: true },
+  );
+
+  // Private POST endpoint with same path
+  server.addRoute("POST", "/api/status", async (req, res) => {
+    res.json({
+      message: "Status updated",
+      public: false,
+      user: req.auth?.role,
+    });
+  });
+
+  await server.start({
+    httpStream: { port },
+    transportType: "httpStream",
+  });
+
+  try {
+    // Test public GET - should work without auth
+    const getResponse = await fetch(`http://localhost:${port}/api/status`);
+    expect(getResponse.status).toBe(200);
+    const getData = (await getResponse.json()) as {
+      public: boolean;
+      status: string;
+    };
+    expect(getData).toEqual({ public: true, status: "ok" });
+
+    // Test private POST without auth - should fail
+    const postResponse = await fetch(`http://localhost:${port}/api/status`, {
+      method: "POST",
+    });
+    expect(postResponse.status).toBe(401);
+
+    // Test private POST with auth - should work
+    const postAuthResponse = await fetch(
+      `http://localhost:${port}/api/status`,
+      {
+        headers: {
+          Authorization: "Bearer admin-token",
+        },
+        method: "POST",
+      },
+    );
+    expect(postAuthResponse.status).toBe(200);
+    const postAuthData = (await postAuthResponse.json()) as {
+      message: string;
+      public: boolean;
+      user: string;
+    };
+    expect(postAuthData).toEqual({
+      message: "Status updated",
+      public: false,
+      user: "admin",
+    });
+  } finally {
+    await server.stop();
+  }
+});
+
+test("route options validation", async () => {
+  const server = new FastMCP({
+    name: "Test",
+    version: "1.0.0",
+  });
+
+  // Test that undefined options work (default behavior)
+  expect(() => {
+    server.addRoute("GET", "/test1", async (_req, res) => {
+      res.json({ test: 1 });
+    });
+  }).not.toThrow();
+
+  // Test that empty options work
+  expect(() => {
+    server.addRoute(
+      "GET",
+      "/test2",
+      async (_req, res) => {
+        res.json({ test: 2 });
+      },
+      {},
+    );
+  }).not.toThrow();
+
+  // Test that public: false works (explicit private)
+  expect(() => {
+    server.addRoute(
+      "GET",
+      "/test3",
+      async (_req, res) => {
+        res.json({ test: 3 });
+      },
+      { public: false },
+    );
+  }).not.toThrow();
+
+  // Test that public: true works
+  expect(() => {
+    server.addRoute(
+      "GET",
+      "/test4",
+      async (_req, res) => {
+        res.json({ test: 4 });
+      },
+      { public: true },
+    );
+  }).not.toThrow();
 });
