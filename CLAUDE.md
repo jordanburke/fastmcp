@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Build & Development
+
 ```bash
 # Install dependencies
 pnpm install
@@ -38,18 +39,21 @@ FastMCP is a TypeScript framework for building Model Context Protocol (MCP) serv
 ### Core Components
 
 **FastMCP Class** (`src/FastMCP.ts`)
+
 - Main server class that extends MCP SDK capabilities
 - Manages server lifecycle, sessions, and transport configurations
 - Supports multiple transport types: stdio, httpStream (with SSE compatibility)
 - Built-in authentication, OAuth support, custom HTTP routes, and stateless mode
 
 **Session Management**
+
 - `FastMCPSession<T>` class handles individual client connections
 - Each client gets its own server instance for 1:1 communication
 - Sessions track client capabilities, roots, and logging levels
 - Supports typed events and sampling requests
 
 **Transport Layer**
+
 - Uses `mcp-proxy` for HTTP streaming and SSE support
 - Configurable ping mechanism for connection health
 - CORS enabled by default
@@ -58,6 +62,7 @@ FastMCP is a TypeScript framework for building Model Context Protocol (MCP) serv
 ### Key Features Implementation
 
 **Tools System**
+
 - Tools are executable functions with Standard Schema validation
 - Support for Zod, ArkType, Valibot schemas via Standard Schema spec
 - Built-in support for streaming output, progress reporting, and logging
@@ -65,18 +70,21 @@ FastMCP is a TypeScript framework for building Model Context Protocol (MCP) serv
 - Optional `canAccess` function for authorization control
 
 **Resources & Templates**
+
 - Resources expose data (files, logs, etc.) via unique URIs
 - Resource templates support dynamic URIs with arguments
 - `embedded()` method simplifies resource inclusion in tool responses
 - Auto-completion support for template arguments
 
 **Custom HTTP Routes**
+
 - Add REST API endpoints alongside MCP endpoints
 - Support for all HTTP methods, path parameters, query strings
 - Public routes option to bypass authentication
 - Useful for webhooks, admin interfaces, OAuth endpoints
 
 **Authentication & OAuth**
+
 - Session-based authentication with custom `authenticate` function
 - Built-in OAuth discovery endpoints (RFC 8414, RFC 9470)
 - Per-tool authorization via `canAccess` function
@@ -114,6 +122,7 @@ FastMCP is a TypeScript framework for building Model Context Protocol (MCP) serv
 ### CLI Tool (`src/bin/fastmcp.ts`)
 
 FastMCP includes a CLI for development and debugging:
+
 - `dev` command: Run server with mcp-cli
 - `inspect` command: Launch MCP Inspector
 - Support for watch mode, verbose logging, and transport configuration
