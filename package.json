@@ -39,6 +39,7 @@
     "execa": "^9.6.1",
     "file-type": "^21.1.1",
     "fuse.js": "^7.1.0",
+    "hono": "^4.11.3",
     "mcp-proxy": "^6.4.0",
     "strict-event-emitter-types": "^2.0.0",
     "undici": "^7.16.0",
@@ -106,7 +107,9 @@
     "entry": [
       "src/FastMCP.ts",
       "src/bin/fastmcp.ts",
-      "src/auth/index.ts"
+      "src/auth/index.ts",
+      "src/edge/index.ts",
+      "src/examples/custom-routes.ts"
     ],
     "format": [
       "esm",
