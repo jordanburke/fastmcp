@@ -1,6 +1,6 @@
 {
-  "name": "fastmcp",
-  "version": "1.0.0",
+  "name": "@jordanburke/fastmcp",
+  "version": "3.26.700",
   "main": "dist/FastMCP.js",
   "scripts": {
     "build": "tsup",
