@@ -24,8 +24,8 @@ importers:
         specifier: ^7.1.0
         version: 7.1.0
       hono:
-        specifier: 4.11.4
-        version: 4.11.4
+        specifier: 4.11.5
+        version: 4.11.5
       jose:
         specifier: ^5.0.0
         version: 5.10.0
@@ -2805,8 +2805,8 @@ packages:
   highlight.js@10.7.3:
     resolution: {integrity: sha512-tzcUFauisWKNHaRkN4Wjl/ZA07gENAjFl3J/c480dprkGTg5EQstgaNFqBfUqCq54kZRIEcreTsAgF/m2quD7A==}
 
-  hono@4.11.4:
-    resolution: {integrity: sha512-U7tt8JsyrxSRKspfhtLET79pU8K+tInj5QZXs1jSugO1Vq5dFj3kmZsRldo29mTBfcjDRVRXrEZ6LS63Cog9ZA==}
+  hono@4.11.5:
+    resolution: {integrity: sha512-WemPi9/WfyMwZs+ZUXdiwcCh9Y+m7L+8vki9MzDw3jJ+W9Lc+12HGsd368Qc1vZi1xwW8BWMMsnK5efYKPdt4g==}
     engines: {node: '>=16.9.0'}
 
   hook-std@4.0.0:
@@ -7064,7 +7064,7 @@ snapshots:
 
   highlight.js@10.7.3: {}
 
-  hono@4.11.4: {}
+  hono@4.11.5: {}
 
   hook-std@4.0.0: {}
 

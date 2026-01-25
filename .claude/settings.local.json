@@ -43,7 +43,16 @@
       "Bash(curl:*)",
       "Bash(npm view:*)",
       "Bash(npm publish:*)",
-      "Bash(npm whoami:*)"
+      "Bash(npm whoami:*)",
+      "Bash(pnpm validate:*)",
+      "Bash(timeout 10 pnpm dev:*)",
+      "Bash(wrangler:*)",
+      "Bash(npx wrangler:*)",
+      "Bash(CF_TOKEN=\"_CC-qcEBBZ7OMYDWMgHOEILy3gsRb4cwftIHgV3-\")",
+      "Bash(ZONE_ID=\"62c1b76479d88bfb35fa65fc695e9cbe\")",
+      "Bash(__NEW_LINE_54157abb601a3cd2__ curl -s -X POST \"https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records\" -H \"Authorization: Bearer $CF_TOKEN\" -H \"Content-Type: application/json\" --data '{\"\"type\"\":\"\"CNAME\"\",\"\"name\"\":\"\"fastmcp\"\",\"\"content\"\":\"\"fastmcp-demo.jordan-burke.workers.dev\"\",\"\"proxied\"\":true}')",
+      "Bash(dig:*)",
+      "Bash(gh issue view:*)"
     ],
     "deny": [],
     "ask": []
