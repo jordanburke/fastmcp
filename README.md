@@ -188,88 +188,94 @@ await client.connect(transport);
 
 FastMCP allows you to add custom HTTP routes alongside MCP endpoints, enabling you to build comprehensive HTTP services that include REST APIs, webhooks, admin interfaces, and more - all within the same server process.
 
+Use `server.getApp()` to access the underlying [Hono](https://hono.dev) instance:
+
 ```ts
+const app = server.getApp();
+
 // Add REST API endpoints
-server.addRoute("GET", "/api/users", async (req, res) => {
-  res.json({ users: [] });
+app.get("/api/users", (c) => {
+  return c.json({ users: [] });
 });
 
 // Handle path parameters
-server.addRoute("GET", "/api/users/:id", async (req, res) => {
-  res.json({
-    userId: req.params.id,
-    query: req.query, // Access query parameters
+app.get("/api/users/:id", (c) => {
+  return c.json({
+    userId: c.req.param("id"),
+    query: c.req.query(), // Access query parameters
   });
 });
 
 // Handle POST requests with body parsing
-server.addRoute("POST", "/api/users", async (req, res) => {
-  const body = await req.json();
-  res.status(201).json({ created: body });
+app.post("/api/users", async (c) => {
+  const body = await c.req.json();
+  return c.json({ created: body }, 201);
 });
 
 // Serve HTML content
-server.addRoute("GET", "/admin", async (req, res) => {
-  res.send("<html><body><h1>Admin Panel</h1></body></html>");
+app.get("/admin", (c) => {
+  return c.html("<html><body><h1>Admin Panel</h1></body></html>");
 });
 
 // Handle webhooks
-server.addRoute("POST", "/webhook/github", async (req, res) => {
-  const payload = await req.json();
-  const event = req.headers["x-github-event"];
+app.post("/webhook/github", async (c) => {
+  const payload = await c.req.json();
+  const event = c.req.header("x-github-event");
 
   // Process webhook...
-  res.json({ received: true });
+  return c.json({ received: true });
 });
 ```
 
 Custom routes support:
 
-- All HTTP methods: GET, POST, PUT, DELETE, PATCH, OPTIONS
+- All HTTP methods via Hono's native API (`app.get()`, `app.post()`, etc.)
 - Path parameters (`:param`) and wildcards (`*`)
 - Query string parsing
 - JSON and text body parsing
 - Custom status codes and headers
-- Authentication via the same `authenticate` function as MCP
-- **Public routes** that bypass authentication
+- Middleware for authentication
 
 Routes are matched in the order they are registered, allowing you to define specific routes before catch-all patterns.
 
-##### Public Routes
+##### Authentication in Custom Routes
 
-By default, custom routes require authentication (if configured). You can make routes public by adding the `{ public: true }` option:
+For custom routes, implement authentication using Hono middleware or a helper function:
 
 ```ts
+const app = server.getApp();
+
+// Helper to check authentication
+const getAuth = async (c: Context) => {
+  const authHeader = c.req.header("authorization");
+  if (authHeader === "Bearer admin-token") {
+    return { role: "admin", userId: "admin" };
+  }
+  return null;
+};
+
 // Public route - no authentication required
-server.addRoute(
-  "GET",
-  "/.well-known/openid-configuration",
-  async (req, res) => {
-    res.json({
-      issuer: "https://example.com",
-      authorization_endpoint: "https://example.com/auth",
-      token_endpoint: "https://example.com/token",
-    });
-  },
-  { public: true },
-);
+app.get("/.well-known/openid-configuration", (c) => {
+  return c.json({
+    issuer: "https://example.com",
+    authorization_endpoint: "https://example.com/auth",
+    token_endpoint: "https://example.com/token",
+  });
+});
 
 // Private route - requires authentication
-server.addRoute("GET", "/api/users", async (req, res) => {
-  // req.auth contains authenticated user data
-  res.json({ users: [] });
+app.get("/api/users", async (c) => {
+  const auth = await getAuth(c);
+  if (!auth) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  return c.json({ users: [] });
 });
 
 // Public static files
-server.addRoute(
-  "GET",
-  "/public/*",
-  async (req, res) => {
-    // Serve static files without authentication
-    res.send(`File: ${req.url}`);
-  },
-  { public: true },
-);
+app.get("/public/*", (c) => {
+  return c.json({ file: c.req.url, public: true });
+});
 ```
 
 Public routes are perfect for:

@@ -357,4 +357,112 @@ describe("EdgeFastMCP", () => {
 
     expect(response.status).toBe(200);
   });
+
+  it("should support custom routes via getApp()", async () => {
+    const server = new EdgeFastMCP({
+      name: "TestServer",
+      version: "1.0.0",
+    });
+
+    // Add custom routes using Hono's native API
+    const app = server.getApp();
+    app.get("/api/status", (c) => c.json({ status: "ok" }));
+    app.get("/api/users/:id", (c) => {
+      const id = c.req.param("id");
+      return c.json({ userId: id });
+    });
+    app.post("/api/echo", async (c) => {
+      const body = await c.req.json();
+      return c.json({ received: body });
+    });
+
+    // Test GET /api/status
+    const statusResponse = await server.fetch(
+      new Request("http://localhost/api/status", {
+        headers: { Accept: "application/json" },
+        method: "GET",
+      }),
+    );
+    expect(statusResponse.status).toBe(200);
+    const statusBody = (await statusResponse.json()) as { status: string };
+    expect(statusBody).toEqual({ status: "ok" });
+
+    // Test GET /api/users/:id with path parameter
+    const userResponse = await server.fetch(
+      new Request("http://localhost/api/users/123", {
+        headers: { Accept: "application/json" },
+        method: "GET",
+      }),
+    );
+    expect(userResponse.status).toBe(200);
+    const userBody = (await userResponse.json()) as { userId: string };
+    expect(userBody).toEqual({ userId: "123" });
+
+    // Test POST /api/echo with JSON body
+    const echoResponse = await server.fetch(
+      new Request("http://localhost/api/echo", {
+        body: JSON.stringify({ message: "hello" }),
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    expect(echoResponse.status).toBe(200);
+    const echoBody = (await echoResponse.json()) as {
+      received: { message: string };
+    };
+    expect(echoBody).toEqual({ received: { message: "hello" } });
+  });
+
+  it("should allow custom routes alongside MCP endpoints", async () => {
+    const server = new EdgeFastMCP({
+      name: "TestServer",
+      version: "1.0.0",
+    });
+
+    server.addTool({
+      description: "Test tool",
+      execute: async () => "Tool result",
+      name: "test",
+      parameters: z.object({}),
+    });
+
+    // Add a custom route
+    const app = server.getApp();
+    app.get("/", (c) => c.html("<h1>Welcome</h1>"));
+
+    // Test custom route
+    const htmlResponse = await server.fetch(
+      new Request("http://localhost/", {
+        method: "GET",
+      }),
+    );
+    expect(htmlResponse.status).toBe(200);
+    const html = await htmlResponse.text();
+    expect(html).toContain("<h1>Welcome</h1>");
+
+    // Test MCP endpoint still works
+    const mcpResponse = await server.fetch(
+      new Request("http://localhost/mcp", {
+        body: JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "tools/list",
+        }),
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    expect(mcpResponse.status).toBe(200);
+    const mcpBody = (await mcpResponse.json()) as {
+      result: { tools: Array<{ name: string }> };
+    };
+    expect(mcpBody.result.tools).toHaveLength(1);
+    expect(mcpBody.result.tools[0].name).toBe("test");
+  });
 });
