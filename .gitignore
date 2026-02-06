@@ -2,3 +2,4 @@ dist
 node_modules
 !.prettierignore
 .idea
+.claude/settings.local.json
