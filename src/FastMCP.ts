@@ -2544,6 +2544,9 @@ export class FastMCP<
         eventStore?: EventStore;
         host?: string;
         port: number;
+        sslCa?: string;
+        sslCert?: string;
+        sslKey?: string;
         stateless?: boolean;
       };
       transportType: "httpStream" | "stdio";
@@ -2619,11 +2622,13 @@ export class FastMCP<
       this.#serverState = ServerState.Running;
     } else if (config.transportType === "httpStream") {
       const httpConfig = config.httpStream;
+      const protocol =
+        httpConfig.sslCert || httpConfig.sslKey ? "https" : "http";
 
       if (httpConfig.stateless) {
         // Stateless mode - create new server instance for each request
         this.#logger.info(
-          `[FastMCP info] Starting server in stateless mode on HTTP Stream at http://${httpConfig.host}:${httpConfig.port}${httpConfig.endpoint}`,
+          `[FastMCP info] Starting server in stateless mode on HTTP Stream at ${protocol}://${httpConfig.host}:${httpConfig.port}${httpConfig.endpoint}`,
         );
 
         this.#httpStreamServer = await startHTTPServer<FastMCPSession<T>>({
@@ -2683,6 +2688,9 @@ export class FastMCP<
             );
           },
           port: httpConfig.port,
+          sslCa: httpConfig.sslCa,
+          sslCert: httpConfig.sslCert,
+          sslKey: httpConfig.sslKey,
           stateless: true,
           streamEndpoint: httpConfig.endpoint,
         });
@@ -2746,12 +2754,15 @@ export class FastMCP<
             );
           },
           port: httpConfig.port,
+          sslCa: httpConfig.sslCa,
+          sslCert: httpConfig.sslCert,
+          sslKey: httpConfig.sslKey,
           stateless: httpConfig.stateless,
           streamEndpoint: httpConfig.endpoint,
         });
 
         this.#logger.info(
-          `[FastMCP info] server is running on HTTP Stream at http://${httpConfig.host}:${httpConfig.port}${httpConfig.endpoint}`,
+          `[FastMCP info] server is running on HTTP Stream at ${protocol}://${httpConfig.host}:${httpConfig.port}${httpConfig.endpoint}`,
         );
       }
       this.#serverState = ServerState.Running;
@@ -3242,6 +3253,9 @@ export class FastMCP<
         eventStore?: EventStore;
         host?: string;
         port: number;
+        sslCa?: string;
+        sslCert?: string;
+        sslKey?: string;
         stateless?: boolean;
       };
       transportType: "httpStream" | "stdio";
@@ -3254,6 +3268,9 @@ export class FastMCP<
           eventStore?: EventStore;
           host: string;
           port: number;
+          sslCa?: string;
+          sslCert?: string;
+          sslKey?: string;
           stateless?: boolean;
         };
         transportType: "httpStream";
@@ -3302,6 +3319,9 @@ export class FastMCP<
         envStateless === "true" ||
         false;
       const eventStore = overrides?.httpStream?.eventStore;
+      const sslCa = overrides?.httpStream?.sslCa;
+      const sslCert = overrides?.httpStream?.sslCert;
+      const sslKey = overrides?.httpStream?.sslKey;
 
       return {
         httpStream: {
@@ -3310,6 +3330,9 @@ export class FastMCP<
           eventStore,
           host,
           port,
+          sslCa,
+          sslCert,
+          sslKey,
           stateless,
         },
         transportType: "httpStream" as const,
